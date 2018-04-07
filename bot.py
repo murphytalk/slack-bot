@@ -1,4 +1,4 @@
-#!/usr/bin/env pythoon
+#!/usr/bin/env python
 import os
 import re
 import time
@@ -6,11 +6,15 @@ import time
 from slackclient import SlackClient
 from slackclient.user import User
 
+from pinyin.wordpad import PinyinCardsGen
+
 READ_WEBSOCKET_DELAY = 1
 BOT_USERNAME = os.environ.get("BOT_USERNAME")
 
 slack_client = SlackClient(os.environ.get('SLACK_BOT_TOKEN'))
 users = {}
+
+py_gen = PinyinCardsGen()
 
 
 class SlackEvent:
@@ -31,6 +35,18 @@ class Message(SlackEvent):
         self.ts = ts
         self.mentioned_users = SlackEvent.parse_users_mentioned(text)
 
+    def __unicode__(self):
+        print(u"channel=%s,user=%s,ts=%s,mentioned_users=%s,text=%s" %
+              (self.channel, self.user, self.ts, self.mentioned_users, self.text))
+
+
+def dispatch_msg(msg):
+    if msg.text:
+        card1, card2 = py_gen.gen_cards(msg.text)
+        print(card1.front, card1.back)
+        if card2:
+            print(card2.front, card2.back)
+
 
 def parseSlackRTM(rtm_data):
     for data in rtm_data:
@@ -41,9 +57,7 @@ def parseSlackRTM(rtm_data):
                 data['user'],
                 data['text'],
                 data['ts'])
-            if msg.mentioned_users:
-                print(msg.mentioned_users)
-            print(msg.text)
+            dispatch_msg(msg)
 
 
 if __name__ == "__main__":
