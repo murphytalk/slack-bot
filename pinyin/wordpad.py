@@ -87,27 +87,17 @@ if __name__ == '__main__':
     file_in = codecs.open(options.file_in, 'r', encoding) if (options.file_in and options.file_in != '-') else sys.stdin
     anki = AnkiFile(options.file_out)
 
-    hz2py = build_hanzi_pinyin_map()
-    simplified2traditional = Converter('zh-hant')
-
+    py_gen = PinyinCardsGen()
     cards = []
 
     for line in file_in.readlines():
         fields = line.split()
         if fields:
             hanzi = fields[0]
-            card = FlashCard(hanzi)
-            cards.append(card)
-            for hz in hanzi:
-                if hz in hz2py:
-                    for py in hz2py[hz]:
-                        card.write_to_back(py + ' ')
-                else:
-                    card.back('[NOT FOUND] ')
-
-            fanti = FlashCard(simplified2traditional.convert(hanzi))
-            fanti.write_to_back(card.back)
-            cards.append(fanti)
+            card1, card2 = py_gen.gen_cards(hanzi)
+            cards.append(card1)
+            if card2:
+                cards.append(card2)
 
     shuffle(cards)
     for c in cards:
