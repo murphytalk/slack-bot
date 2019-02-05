@@ -1,20 +1,15 @@
 #!/usr/bin/env python3
 import sys
 from dataclasses import dataclass
-from threading import Thread
-from queue import PriorityQueue
+from scrapy import signals
 from scrapy.spiders import CrawlSpider, Rule
 from scrapy import Field, Item
 from scrapy.linkextractors import LinkExtractor as E
 from scrapy.crawler import CrawlerProcess, Crawler
-from twisted.internet import reactor
 from scrapy.utils.log import configure_logging
 from urllib.parse import urlparse
 from typing import Tuple
 from multiprocessing import Process, Queue
-from scrapy import signals
-
-taskQ = PriorityQueue()
 
 
 @dataclass
@@ -28,7 +23,7 @@ class MyRule:
 rules = {
     'www.khanacademy.org': MyRule(
         "//div[contains(@class,'container_1o7qpn5')]/text()",
-        (Rule(E(allow=('[a-z\-]')),callback='parse_item'),)
+        (Rule(E(allow=(r'[a-z\-]')), callback='parse_item'),)
     )
 }
 
@@ -55,7 +50,6 @@ class MySpider(CrawlSpider):
         self.allowed_domains = [rule.domain]
         super(MySpider, self).__init__()
 
-
     def parse_item(self, response):
         txt = response.xpath(self.xpath).getall()
         item = MyItem()
@@ -68,7 +62,7 @@ configure_logging({'LOG_FORMAT': '%(levelname)s: %(message)s'})
 
 
 class CustomCrawler(object):
-    def crawl(self, spider,rule):
+    def crawl(self, spider, rule):
         crawled_items = []
 
         def add_item(item):
@@ -101,13 +95,14 @@ def crawl(url):
         r.url = url
         r.domain = uri
         q = Queue()
-        p = Process(target=_crawl, args=(q,r))
+        p = Process(target=_crawl, args=(q, r))
         p.start()
         res = q.get()
         p.join()
         return res
 
     return None
+
 
 if __name__ == "__main__":
     for url in sys.argv[1:]:
