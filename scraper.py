@@ -6,13 +6,15 @@ from queue import PriorityQueue
 from scrapy.spiders import CrawlSpider, Rule
 from scrapy import Field, Item
 from scrapy.linkextractors import LinkExtractor as E
-from scrapy.crawler import CrawlerRunner
+from scrapy.crawler import CrawlerProcess, Crawler
 from twisted.internet import reactor
 from scrapy.utils.log import configure_logging
 from urllib.parse import urlparse
 from typing import Tuple
+from multiprocessing import Process, Queue
+from scrapy import signals
 
-q = PriorityQueue()
+taskQ = PriorityQueue()
 
 
 @dataclass
@@ -26,7 +28,7 @@ class MyRule:
 rules = {
     'www.khanacademy.org': MyRule(
         "//div[contains(@class,'container_1o7qpn5')]/text()",
-        (Rule(E(allow=('relating-addition-and-subtraction')),callback='parse_item'),)
+        (Rule(E(allow=('[a-z\-]')),callback='parse_item'),)
     )
 }
 
@@ -63,44 +65,50 @@ class MySpider(CrawlSpider):
 
 
 configure_logging({'LOG_FORMAT': '%(levelname)s: %(message)s'})
-runner = CrawlerRunner()
 
 
-def dispatch_to_crawler(url):
+class CustomCrawler(object):
+    def crawl(self, spider,rule):
+        crawled_items = []
+
+        def add_item(item):
+            crawled_items.append(item)
+
+        process = CrawlerProcess()
+
+        crawler = Crawler(spider)
+        crawler.signals.connect(add_item, signals.item_scraped)
+        process.crawl(crawler, rule)
+
+        process.start()
+
+        return crawled_items
+
+
+def crawl(url):
     """
     url is already santinized by caller
     """
+    def _crawl(queue, rule):
+        crawler = CustomCrawler()
+        res = crawler.crawl(MySpider, rule)
+        queue.put(res)
+
     uri = urlparse(url)
     uri = uri.netloc if uri.netloc else None
     if uri in rules:
         r = rules[uri]
         r.url = url
         r.domain = uri
-        d = runner.crawl(MySpider, r)
-        d.addBoth(lambda _: reactor.stop())
-        d = runner.join()
-        reactor.run(installSignalHandlers=False)
+        q = Queue()
+        p = Process(target=_crawl, args=(q,r))
+        p.start()
+        res = q.get()
+        p.join()
+        return res
 
-
-def worker():
-    while True:
-        item = q.get()
-        # item is a (priority, url) tuple
-        if item[1] is None:
-            break
-        dispatch_to_crawler(item[1])
-        q.task_done()
-
-
-def start():
-    t = Thread(target=worker)
-    t.start()
-    return t
-
+    return None
 
 if __name__ == "__main__":
     for url in sys.argv[1:]:
-        q.put((0, url))
-    q.put((100, None))
-    t = start()
-    t.join()
+        print(crawl(url))
