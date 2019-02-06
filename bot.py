@@ -32,15 +32,14 @@ class SlackEvent(object):
 
 
 class Message(SlackEvent):
-    def __init__(self, channel, user_id, text, ts):
-        self.channel = channel
-        self.user = users[user_id] if user_id else ''
-        self.text = text
-        self.ts = ts
-        self.mentioned_users = SlackEvent.parse_users_mentioned(text)
+    def __init__(self, raw_message):
+        if 'user' in raw_message:
+            self.mentioned_users = SlackEvent.parse_users_mentioned(raw_message['user'])
+        for k, v in raw_message.items():
+            setattr(self, k, v)
 
     def __str__(self):
-        return "channel={},user={},ts={},mentioned_users={},text={}".format(self.channel, self.user, self.ts, self.mentioned_users, self.text)
+        return 'Message\n' + '\n'.join(["{}={}".format(k, v) for k, v in self.__dict__.items()])
 
 
 class Command(object):
@@ -51,8 +50,8 @@ class Pinyin(Command):
     match = re.compile('^py *(.*)$')
 
     @staticmethod
-    def run(raw_message):
-        m = Pinyin.match.match(raw_message)
+    def run(text):
+        m = Pinyin.match.match(text)
         if m:
             card1, card2 = py_gen.gen_cards(m.group(1))
             res = card1.front + ' ' + card1.back
@@ -65,9 +64,9 @@ class Pinyin(Command):
 
 class URL(Command):
     @staticmethod
-    def run(raw_message):
+    def run(text):
         try:
-            url = raw_message[1:-1] if raw_message[0] == '<' and raw_message[-1] == '>' else raw_message
+            url = text[1:-1] if text[0] == '<' and text[-1] == '>' else text
             uri = urlparse(url)
             if uri and uri.scheme in ('http', 'https'):
                 items = crawl(url)
@@ -83,11 +82,10 @@ commands = [v for k, v in inspect.getmembers(sys.modules[__name__], inspect.iscl
 
 
 def dispatch_msg(msg):
-    if msg.text:
+    if hasattr(msg, 'text'):
         for cmd in commands:
             result = cmd.run(msg.text)
             if result:
-                print('RE',result)
                 slack_client.api_call(
                     "chat.postMessage",
                     channel=msg.channel,
@@ -101,12 +99,7 @@ def parseSlackRTM(rtm_data):
     for data in rtm_data:
         data_type = data['type']
         if data_type == 'message':
-            print(data)
-            msg = Message(
-                data['channel'],
-                data['user'] if 'user' in data else None,
-                data['text'],
-                data['ts'])
+            msg = Message(data)
             print(msg)
             dispatch_msg(msg)
 
