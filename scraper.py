@@ -2,29 +2,28 @@
 import sys
 from dataclasses import dataclass
 from scrapy import signals
-from scrapy.spiders import CrawlSpider, Rule
+from scrapy.spiders import Spider
 from scrapy import Field, Item
-from scrapy.linkextractors import LinkExtractor as E
+from scrapy.settings import Settings
 from scrapy.crawler import CrawlerProcess, Crawler
 from scrapy.utils.log import configure_logging
 from urllib.parse import urlparse
-from typing import Tuple
 from multiprocessing import Process, Queue
 
 
 @dataclass
 class MyRule:
     xpath: str
-    rules: Tuple[Rule]
     domain: str = ''
     url: str = ''
 
 
 rules = {
-    'www.khanacademy.org': MyRule(
-        "//div[contains(@class,'container_1o7qpn5')]/text()",
-        (Rule(E(allow=(r'[a-z\-]')), callback='parse_item'),)
-    )
+    'www.khanacademy.org': MyRule("//div[contains(@class,'container_1o7qpn5')]/text()")
+}
+
+custom_settings = {
+    'USER_AGENT': "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_7_3) AppleWebKit/535.20 (KHTML, like Gecko) Chrome/19.0.1036.7 Safari/535.20",
 }
 
 
@@ -32,29 +31,23 @@ class MyItem(Item):
     text = Field()
 
 
-class MySpider(CrawlSpider):
+class MySpider(Spider):
     """
     use scrapy view http://..... to see page before being modified by JavaScript
     """
 
-    custom_settings = {
-        'USER_AGENT': "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_7_3) AppleWebKit/535.20 (KHTML, like Gecko) Chrome/19.0.1036.7 Safari/535.20",
-    }
 
     def __init__(self, rule):
         self.xpath = rule.xpath
 
-        self.rules = rule.rules
         self.start_urls = [rule.url]
         self.name = rule.domain
-        self.allowed_domains = [rule.domain]
         super(MySpider, self).__init__()
 
-    def parse_item(self, response):
+    def parse(self, response):
         txt = response.xpath(self.xpath).getall()
         item = MyItem()
         item['text'] = txt[0] if txt and len(txt) >= 1 else None
-        print(item['text'])
         return item
 
 
@@ -68,9 +61,9 @@ class CustomCrawler(object):
         def add_item(item):
             crawled_items.append(item)
 
-        process = CrawlerProcess()
-
-        crawler = Crawler(spider)
+        s = Settings(custom_settings)
+        process = CrawlerProcess(s)
+        crawler = Crawler(spider, s)
         crawler.signals.connect(add_item, signals.item_scraped)
         process.crawl(crawler, rule)
 
