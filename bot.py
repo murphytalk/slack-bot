@@ -17,6 +17,7 @@ BOT_USERNAME = os.environ.get("BOT_USERNAME")
 
 slack_client = SlackClient(os.environ.get('SLACK_BOT_TOKEN'))
 users = {}
+bot_id = None
 
 py_gen = PinyinCardsGen()
 
@@ -24,6 +25,7 @@ py_gen = PinyinCardsGen()
 class SlackEvent(object):
     @classmethod
     def parse_users_mentioned(cls, text):
+        global users
         return [
             users[uid[2:-1]]
             for uid in re.findall(r'<@U.*?>', text)
@@ -39,7 +41,7 @@ class Message(SlackEvent):
             setattr(self, k, v)
 
     def __str__(self):
-        return 'Message\n' + '\n'.join(["{}={}".format(k, v) for k, v in self.__dict__.items()])
+        return '=== Message ===\n' + '\n'.join(["{}={}".format(k, v) for k, v in self.__dict__.items()]) + '\n===============\n'
 
 
 class Command(object):
@@ -47,7 +49,7 @@ class Command(object):
 
 
 class Pinyin(Command):
-    match = re.compile('^py *(.*)$')
+    match = re.compile('^[Pp][Yy] *(.*)$')
 
     @staticmethod
     def run(text):
@@ -86,22 +88,27 @@ def dispatch_msg(msg):
         for cmd in commands:
             result = cmd.run(msg.text)
             if result:
-                slack_client.api_call(
-                    "chat.postMessage",
-                    channel=msg.channel,
-                    text=result,
-                    thread_ts=msg.ts
+                # the documentation is wrong
+                # https://github.com/slackapi/python-slackclient/blob/master/slackclient/client.py#L246
+                slack_client.rtm_send_message(
+                    msg.channel, result, msg.ts
                 )
-
 
 
 def parseSlackRTM(rtm_data):
     for data in rtm_data:
-        data_type = data['type']
-        if data_type == 'message':
-            msg = Message(data)
-            print(msg)
-            dispatch_msg(msg)
+        if 'user' in data and data['user'] == bot_id:
+            print('Ignore my own message')
+            return
+
+        print('Raw Data:', data)
+
+        if 'type' in data:
+            data_type = data['type']
+            if data_type == 'message':
+                msg = Message(data)
+                print(msg)
+                dispatch_msg(msg)
 
 
 if __name__ == "__main__":
@@ -118,6 +125,10 @@ if __name__ == "__main__":
             )
             for u in userlst_call.get('members') if not u['deleted']
         }
+        print('Users', users)
+        for uid, u in users.items():
+            if u.name == BOT_USERNAME:
+                bot_id = uid
 
         if slack_client.rtm_connect():
             print("Connected to Slack")
