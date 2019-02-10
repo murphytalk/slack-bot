@@ -23,9 +23,9 @@ class TestCommands(unittest.TestCase):
     def test_HELP_list(self):
         cmds = set([n.lower() for n, c in inspect.getmembers(commands, inspect.isclass) if c.__doc__])
         for h in commands.dispatch('help').split('\n'):
-            m = commands.matcher.match(h)
-            if m:
-                assert m.group(1).lower() in cmds
+            m = commands._matcher.match(h)
+            assert m
+            assert m.group(1).lower() in cmds
 
     def test_HELP_help(self):
         res = commands.dispatch('help py')
