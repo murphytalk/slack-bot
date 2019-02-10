@@ -5,7 +5,7 @@ import os
 import codecs
 from optparse import OptionParser
 from collections import defaultdict
-from pinyin.langconv import Converter
+from commands.pinyin.langconv import Converter
 from random import shuffle
 
 
