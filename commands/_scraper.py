@@ -35,8 +35,6 @@ class MySpider(Spider):
     """
     use scrapy view http://..... to see page before being modified by JavaScript
     """
-
-
     def __init__(self, rule):
         self.xpath = rule.xpath
 
@@ -72,31 +70,33 @@ class CustomCrawler(object):
         return crawled_items
 
 
-def crawl(url):
-    """
-    url is already santinized by caller
-    """
-    def _crawl(queue, rule):
-        crawler = CustomCrawler()
-        res = crawler.crawl(MySpider, rule)
-        queue.put(res)
+class Scraper(object):
+    @staticmethod
+    def run(url):
+        """
+        url is already santinized by caller
+        """
+        def _crawl(queue, rule):
+            crawler = CustomCrawler()
+            res = crawler.crawl(MySpider, rule)
+            queue.put(res)
 
-    uri = urlparse(url)
-    uri = uri.netloc if uri.netloc else None
-    if uri in rules:
-        r = rules[uri]
-        r.url = url
-        r.domain = uri
-        q = Queue()
-        p = Process(target=_crawl, args=(q, r))
-        p.start()
-        res = q.get()
-        p.join()
-        return res
+        uri = urlparse(url)
+        uri = uri.netloc if uri.netloc else None
+        if uri in rules:
+            r = rules[uri]
+            r.url = url
+            r.domain = uri
+            q = Queue()
+            p = Process(target=_crawl, args=(q, r))
+            p.start()
+            res = q.get()
+            p.join()
+            return res
 
-    return None
+        return None
 
 
 if __name__ == "__main__":
     for url in sys.argv[1:]:
-        print(crawl(url))
+        print(Scraper.run(url))

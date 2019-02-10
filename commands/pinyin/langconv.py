@@ -2,16 +2,15 @@
 # -*- coding: utf-8 -*-
 
 from copy import deepcopy
-import re
 
 try:
     import psyco
     psyco.full()
-except:
+except Exception:
     pass
 
 try:
-    from pinyin.zh_wiki import zh2Hant, zh2Hans
+    from commands.pinyin.zh_wiki import zh2Hant, zh2Hans
 except ImportError:
     from zhtools.zh_wiki import zh2Hant, zh2Hans
 
