@@ -14,16 +14,14 @@ from multiprocessing import Process, Queue
 @dataclass
 class MyRule:
     xpath: str
-    domain: str = ''
-    url: str = ''
+    domain: str = ""
+    url: str = ""
 
 
-rules = {
-    'www.khanacademy.org': MyRule("//div[contains(@class,'container_1o7qpn5')]/text()")
-}
+rules = {"www.khanacademy.org": MyRule("//div[contains(@class,'container_1o7qpn5')]/text()")}
 
 custom_settings = {
-    'USER_AGENT': "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_7_3) AppleWebKit/535.20 (KHTML, like Gecko) Chrome/19.0.1036.7 Safari/535.20",
+    "USER_AGENT": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_7_3) AppleWebKit/535.20 (KHTML, like Gecko) Chrome/19.0.1036.7 Safari/535.20"
 }
 
 
@@ -35,6 +33,7 @@ class MySpider(Spider):
     """
     use scrapy view http://..... to see page before being modified by JavaScript
     """
+
     def __init__(self, rule):
         self.xpath = rule.xpath
 
@@ -45,11 +44,11 @@ class MySpider(Spider):
     def parse(self, response):
         txt = response.xpath(self.xpath).getall()
         item = MyItem()
-        item['text'] = txt[0] if txt and len(txt) >= 1 else None
+        item["text"] = txt[0] if txt and len(txt) >= 1 else None
         return item
 
 
-configure_logging({'LOG_FORMAT': '%(levelname)s: %(message)s'})
+configure_logging({"LOG_FORMAT": "%(levelname)s: %(message)s"})
 
 
 class CustomCrawler(object):
@@ -76,6 +75,7 @@ class Scraper(object):
         """
         url is already santinized by caller
         """
+
         def _crawl(queue, rule):
             crawler = CustomCrawler()
             res = crawler.crawl(MySpider, rule)
