@@ -8,7 +8,7 @@ from ._anki import ANKI, ANKI2
 assert ANKI, ANKI2  # silence flake8 complaing module imported but not used
 
 
-_matcher = re.compile("^([A-Za-z]+) *(.*)$")
+_matcher = re.compile(r"^(\w+) *(.*)$", re.IGNORECASE)
 
 
 def _parse_cmd(cmd):
@@ -63,6 +63,9 @@ class HELP(object):
 
 
 def dispatch(msg):
+    if ANKI2.enabled:
+        return ANKI2.process(msg)
+
     if msg.startswith("http://") or msg.startswith("https://"):
         return URL.run(msg)
     else:
