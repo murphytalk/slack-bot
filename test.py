@@ -47,8 +47,13 @@ class TestCommands(unittest.TestCase):
         commands.dispatch("user me")
         user.assert_called_with("me")
 
+        assert commands.dispatch("user") == commands.ANKI2.__doc__
+
         commands.dispatch("deck my")
         deck.assert_called_with("my")
+
+        commands.dispatch("deck")
+        deck.assert_called_with("")
 
         commands.dispatch("f1, f2")
         add.assert_called_with("f1", "f2")

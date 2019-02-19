@@ -14,7 +14,7 @@ _matcher = re.compile(r"^(\w+) *(.*)$", re.IGNORECASE)
 def _parse_cmd(cmd):
     match_res = _matcher.match(cmd)
     return (
-        getattr(sys.modules[__name__], match_res.group(1).upper(), None),
+        getattr(sys.modules[__name__], match_res.group(1).upper()),
         match_res.group(2) if match_res else None,
     )
 
@@ -62,12 +62,16 @@ class HELP(object):
             )
 
 
-def dispatch(msg):
+def dispatch(msg, uid=None):
     if ANKI2.enabled:
         return ANKI2.process(msg)
 
     if msg.startswith("http://") or msg.startswith("https://"):
         return URL.run(msg)
     else:
-        cls, param = _parse_cmd(msg)
-        return cls.run(param) if cls else None
+        try:
+            cls, param = _parse_cmd(msg)
+            setattr(cls, "slack_uid", uid)
+            return cls.run(param)
+        except AttributeError:
+            return None
