@@ -50,17 +50,18 @@ def parseSlackRTM(rtm_data):
 
         msg = Message(data)
         print(msg)
-        if not hasattr(msg, "text"):
+        if not hasattr(msg, "text") or not hasattr(msg, "user"):
             continue
 
         text = msg.text.strip()
+        uid = msg.user.strip()
         # Slack quotes URL with <>
         text = text[1:-1] if text[0] == "<" and text[-1] == ">" else text
-        result = dispatch(text)
+        result = dispatch(text, uid)
         if result:
             # the documentation is wrong
             # https://github.com/slackapi/python-slackclient/blob/master/slackclient/client.py#L246
-            slack_client.rtm_send_message(msg.channel, result, msg.ts)
+            slack_client.rtm_send_message(msg.channel, result, None)  # msg.ts)
 
 
 def run():
