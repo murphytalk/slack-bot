@@ -37,7 +37,7 @@ class TestCommands(unittest.TestCase):
 
     @patch("commands.ANKI._get_user")
     @patch("commands.ANKI.deck")
-    @patch("commands.ANKI.add")
+    @patch("commands.ANKI._add")
     @patch("commands.ANKI.user")
     def test_ANKI_mode(self, user, add, deck, get_user):
         get_user.return_value = 'user'
@@ -56,16 +56,28 @@ class TestCommands(unittest.TestCase):
         commands.dispatch("deck")
         deck.assert_called_with("")
 
-        commands.dispatch("f1, f2")
-        add.assert_called_with("f1", "f2")
+        assert (
+            commands.dispatch("add f1, f2")
+            == 'No deck is selected'
+        )
+
+        commands.ANKI.model_fields = ['F1']
+        assert (
+            commands.dispatch("add f1, f2")
+            == 'Fields number is incorrect, expected fields are F1'
+        )
+
+        commands.ANKI.model_fields = ['F1', 'F2']
+        commands.dispatch("add f1, f2")
+        add.assert_called_with(['f1', 'f2'])
 
         assert (
-            commands.dispatch("only one")
+            commands.dispatch("unknown")
             == commands.ANKI.__doc__
         )
 
         assert (
-            commands.dispatch("only")
+            commands.dispatch("unknown param")
             == commands.ANKI.__doc__
         )
 

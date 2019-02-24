@@ -22,8 +22,8 @@ class ANKI(object):
     fields
        list fields of selected deck
 
-    <front>,<back>
-       add a card to Anki
+    add <field1>[,<field2>, ... , <field N>]
+       add a card. The fields must match the order of the list returned by fields command
 
     off
        exit Anki continuous mode.
@@ -31,7 +31,7 @@ class ANKI(object):
 
     # obviously this is not thread-safe, and we don't care
     enabled = False
-    cmdPattern = re.compile(r"^(\w+)([^,]*)$", re.IGNORECASE)
+    cmdPattern = re.compile(r"^(\w+)(.*)$", re.IGNORECASE)
 
     anki_server = os.environ.get("ANKI_SERVER", "http://127.0.0.1:27701")
     selected_user = None
@@ -71,11 +71,7 @@ class ANKI(object):
             except AttributeError:
                 return ANKI.__doc__
         else:
-            try:
-                front, back = text.split(",")
-                return cls.add(front.strip(), back.strip())
-            except ValueError:
-                return ANKI.__doc__
+            return ANKI.__doc__
 
     @classmethod
     def deck(cls, deck):
@@ -123,12 +119,30 @@ class ANKI(object):
         return "Current user is {}".format(user)
 
     @classmethod
-    def add(cls, front, back):
-        if cls.selected_user is None:
-            try:
-                cls.selected_user = os.environ.get(cls.slack_uid)
-            except KeyError:
-                return "Anki User not selected"
+    def _add(cls, fields):
+        try:
+            cls._query_anki("add_note", {
+                'model': cls.selected_model_id,
+                'fields': dict(zip(cls.model_fields, fields))
+            })
+            return "Note added"
+        except Exception as e:
+            return str(e)
+
+    @classmethod
+    def add(cls, fields):
+        if not cls.model_fields:
+            return "No deck is selected"
+
+        cls._get_user()
+        f = [f.strip() for f in fields.strip().split(",")]
+
+        if len(f) != len(cls.model_fields):
+            return "Fields number is incorrect, expected fields are {}".format(
+                ",".join(cls.model_fields)
+            )
+
+        return cls._add(f)
 
     @classmethod
     def _query_anki(cls, query, data={}):
