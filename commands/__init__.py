@@ -3,9 +3,9 @@ import re
 import sys
 from .pinyin.wordpad import PinyinCardsGen
 from ._scraper import Scraper
-from ._anki import ANKI, ANKI2
+from ._anki import ANKI
 
-assert ANKI, ANKI2  # silence flake8 complaing module imported but not used
+assert ANKI # silence flake8 complaing module imported but not used
 
 
 _matcher = re.compile(r"^(\w+) *(.*)$", re.IGNORECASE)
@@ -63,8 +63,8 @@ class HELP(object):
 
 
 def dispatch(msg, uid=None):
-    if ANKI2.enabled:
-        return ANKI2.process(msg)
+    if ANKI.enabled:
+        return ANKI.process(msg)
 
     if msg.startswith("http://") or msg.startswith("https://"):
         return URL.run(msg)

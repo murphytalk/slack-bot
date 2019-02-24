@@ -35,19 +35,20 @@ class TestCommands(unittest.TestCase):
         assert res.startswith("py ")
         assert "\n" in res
 
-    @patch("commands.ANKI2.deck")
-    @patch("commands.ANKI2.add")
-    @patch("commands.ANKI2.user")
-    def test_ANKI2_mode(self, user, add, deck):
-        assert not commands.ANKI2.enabled
+    @patch("commands.ANKI._get_user")
+    @patch("commands.ANKI.deck")
+    @patch("commands.ANKI.add")
+    @patch("commands.ANKI.user")
+    def test_ANKI_mode(self, user, add, deck, get_user):
+        get_user.return_value = 'user'
 
-        commands.dispatch("anki2 on")
-        assert commands.ANKI2.enabled
+        assert not commands.ANKI.enabled
+
+        commands.dispatch("anki")
+        assert commands.ANKI.enabled
 
         commands.dispatch("user me")
         user.assert_called_with("me")
-
-        assert commands.dispatch("user") == commands.ANKI2.__doc__
 
         commands.dispatch("deck my")
         deck.assert_called_with("my")
@@ -60,16 +61,16 @@ class TestCommands(unittest.TestCase):
 
         assert (
             commands.dispatch("only one")
-            == commands.ANKI2.__doc__
+            == commands.ANKI.__doc__
         )
 
         assert (
             commands.dispatch("only")
-            == commands.ANKI2.__doc__
+            == commands.ANKI.__doc__
         )
 
         commands.dispatch("off")
-        assert not commands.ANKI2.enabled
+        assert not commands.ANKI.enabled
 
 
 if __name__ == "__main__":

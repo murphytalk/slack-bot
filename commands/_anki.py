@@ -5,27 +5,22 @@ import requests
 
 
 class ANKI(object):
-    """anki <English word>[,<deck>]
-    Look up dictionary and add the English word, pronunciation and meaning to Anki
-    """
-
-    pass
-
-
-class ANKI2(object):
-    """anki2
+    """anki
     Enable Anki continuous mode.
     When continuous mode is enabled, any message following that will be interpreted as Anki card.
 
     The message could be any of the following patterns:
 
-    deck [deck name]
-       Select a deck or list all decks
-
     user <user name>
        Select an anki user
        if user is not being explictily selected, the value of environment variable whose name is
        same as slack UID will be used.
+
+    deck [deck name]
+       Select a deck or list all decks
+
+    fields
+       list fields of selected deck
 
     <front>,<back>
        add a card to Anki
@@ -41,15 +36,24 @@ class ANKI2(object):
     anki_server = os.environ.get("ANKI_SERVER", "http://127.0.0.1:27701")
     selected_user = None
     selected_deck = None
+    selected_model_id = None
+    model_fields = None
+
+    # HACKING - for reason I don't know some Anki deck query do not return model id
+    # add deck id to model id mapping for those decks
+    _MODEL_ID_OVERRIDES = {
+        1_523_111_820_579: 1_352_475_098_963,
+        1_523_111_828_093: 1_352_475_098_963,
+    }
 
     @staticmethod
     def run(status):
-        ANKI2.enabled = True
+        ANKI.enabled = True
         return (
             "[Anki] continuous mode is on, anki user [{}], deck [{}]".format(
-                ANKI2._get_user(), ANKI2.selected_deck
+                ANKI._get_user(), ANKI.selected_deck
             )
-            if ANKI2.enabled
+            if ANKI.enabled
             else None
         )
 
@@ -65,25 +69,50 @@ class ANKI2(object):
                 func = getattr(cls, m.group(1))
                 return func(m.group(2).strip())
             except AttributeError:
-                return ANKI2.__doc__
+                return ANKI.__doc__
         else:
             try:
                 front, back = text.split(",")
                 return cls.add(front.strip(), back.strip())
             except ValueError:
-                return ANKI2.__doc__
+                return ANKI.__doc__
 
     @classmethod
     def deck(cls, deck):
-        decks = cls._query_anki('list_decks')
+        decks = cls._query_anki("list_decks")
         if deck is None or deck == "":
-            return '\n'.join([d['name'] for d in decks])
+            return "\n".join([d["name"] for d in decks])
         else:
             for d in decks:
-                if d['name'] == deck:
-                    cls.selected_deck = deck
-                    cls._query_anki('select_deck', {'deck': d['id']})
-                    return 'Current deck is {}'.format(deck)
+                if d["name"] == deck:
+                    # get deck model ID
+                    print(d)
+                    deck = cls._query_anki("deck/{}".format(d["id"]))
+                    if not deck or isinstance(deck, str):
+                        return (
+                            deck if deck else "Is this a valid deck? {}".format(cls.selected_deck)
+                        )
+                    cls.selected_deck = deck["name"]
+                    if "mid" in deck:
+                        cls.selected_model_id = deck["mid"]
+                    elif d["id"] in cls._MODEL_ID_OVERRIDES:
+                        cls.selected_model_id = cls._MODEL_ID_OVERRIDES[d["id"]]
+                    else:
+                        return "Cannot find model id, consider to override ride model id for deck id {}".fomrat(
+                            d["id"]
+                        )
+
+                    fields = cls._query_anki("model/{}/field_names".format(cls.selected_model_id))
+                    if not fields or isinstance(fields, str):
+                        return (
+                            fields
+                            if fields
+                            else "Failed to query model ID={}".format(cls.selected_model_id)
+                        )
+                    cls.model_fields = fields
+
+                    cls._query_anki("select_deck", {"deck": d["id"]})
+                    return "Current deck is {}".format(cls.selected_deck)
             return "Unknown deck " + deck
 
     @classmethod
@@ -91,7 +120,7 @@ class ANKI2(object):
         if user is None or user == "":
             return cls.__doc__
         cls.selected_user = user
-        return 'Current user is {}'.format(user)
+        return "Current user is {}".format(user)
 
     @classmethod
     def add(cls, front, back):
@@ -104,7 +133,7 @@ class ANKI2(object):
     @classmethod
     def _query_anki(cls, query, data={}):
         try:
-            url = '{}/collection/{}/{}'.format(cls.anki_server, cls._get_user(), query)
+            url = "{}/collection/{}/{}".format(cls.anki_server, cls._get_user(), query)
             r = requests.post(url, json=data)
             return (r.json() if len(r.text) > 0 else None) if r and r.status_code == 200 else None
         except RuntimeError as e:
@@ -119,3 +148,10 @@ class ANKI2(object):
             if cls.selected_user:
                 return cls.selected_user
             raise RuntimeError("Please select an Anki user first")
+
+    @classmethod
+    def fields(cls, f=None):
+        if not cls.model_fields:
+            return "Select a deck please!"
+
+        return "\n".join(cls.model_fields)
